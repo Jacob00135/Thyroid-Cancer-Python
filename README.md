@@ -1,0 +1,1 @@
+Use Python to rewrite the repository: [xnnba1984/Thyroid-Cancer](https://github.com/xnnba1984/Thyroid-Cancer), reproduce the paper: [Improving The Diagnosis of Thyroid Cancer by Machine Learning and Clinical Data](https://doi.org/10.1038/s41598-022-15342-z)
