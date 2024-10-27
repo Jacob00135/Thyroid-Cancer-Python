@@ -1,6 +1,19 @@
 import pandas as pd
 import numpy as np
+from sklearn import metrics
 from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.svm import SVC
+
+
+def one_hot(arr, num_classes=2):
+    labels = np.zeros((arr.shape[0], num_classes), dtype=arr.dtype)
+    for i, v in enumerate(arr):
+        labels[i, v] = 1
+
+    return labels
 
 
 def cross_validation(fold=10, shuffle=True):
@@ -36,5 +49,55 @@ def cross_validation(fold=10, shuffle=True):
         yield x_train, y_train, x_test, y_test
 
 
+def accuracy_score(label_true, label_pred):
+    return metrics.accuracy_score(label_true, label_pred)
+
+
+def auc_score(y_true_proba, y_pred_proba):
+    return metrics.roc_auc_score(y_true_proba, y_pred_proba)
+
+
+def sensitivity_score(label_true, label_pred):
+    return metrics.recall_score(label_true, label_pred)
+
+
+def specificity_score(label_true, label_pred):
+    tn, fp, fn, tp = metrics.confusion_matrix(label_true, label_pred).ravel()
+    return tn / (tn + fp)
+
+
+def precision_score(label_true, label_pred):
+    return metrics.precision_score(label_true, label_pred)
+
+
+def train_and_evaluate(model):
+    acc_list, auc_list, sen_list, spe_list, prec_list = [], [], [], [], []
+
+    for x_train, y_train, x_test, y_test in cross_validation():
+        model.fit(x_train, y_train)
+        y_pred_proba = model.predict_proba(x_test)
+        y_pred = y_pred_proba.argmax(axis=1)
+        y_test_proba = one_hot(y_test, num_classes=2)
+
+        acc_list.append(accuracy_score(y_test, y_pred))
+        auc_list.append(auc_score(y_test_proba, y_pred_proba))
+        sen_list.append(sensitivity_score(y_test, y_pred))
+        spe_list.append(specificity_score(y_test, y_pred))
+        prec_list.append(precision_score(y_test, y_pred))
+
+    return np.mean(acc_list), np.mean(auc_list), np.mean(sen_list), np.mean(spe_list), np.mean(prec_list)
+
+
 if __name__ == '__main__':
-    cross_validation()
+    model_dict = {
+        '逻辑回归': LogisticRegression(solver='liblinear'),
+        '随机森林': RandomForestClassifier(),
+        '线性判别分析': LinearDiscriminantAnalysis(),
+        '梯度提升机': GradientBoostingClassifier(),
+        '支持向量机': SVC(kernel='linear', probability=True)
+    }
+    for model_name, model in model_dict.items():
+        acc, auc, sen, spe, prec = train_and_evaluate(model)
+        print('{}: acc={:.4f}, auc={:.4f}, sen={:.4f}, spe={:.4f}, prec={:.4f}'.format(
+            model_name, acc, auc, sen, spe, prec
+        ))
