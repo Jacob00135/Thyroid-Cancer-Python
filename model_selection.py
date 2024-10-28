@@ -1,11 +1,19 @@
+import json
 import pandas as pd
 import numpy as np
+import matplotlib
+import matplotlib.pyplot as plt
+from time import time as get_timestamp
 from sklearn import metrics
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.svm import SVC
+
+matplotlib.use('TkAgg')
+plt.rcParams["font.sans-serif"] = ["SimHei"]
+plt.rcParams["axes.unicode_minus"] = False
 
 
 def one_hot(arr, num_classes=2):
@@ -85,10 +93,11 @@ def train_and_evaluate(model):
         spe_list.append(specificity_score(y_test, y_pred))
         prec_list.append(precision_score(y_test, y_pred))
 
-    return np.mean(acc_list), np.mean(auc_list), np.mean(sen_list), np.mean(spe_list), np.mean(prec_list)
+    return acc_list, auc_list, sen_list, spe_list, prec_list
 
 
 if __name__ == '__main__':
+    # 训练模型并评估
     model_dict = {
         '逻辑回归': LogisticRegression(solver='liblinear'),
         '随机森林': RandomForestClassifier(),
@@ -96,8 +105,38 @@ if __name__ == '__main__':
         '梯度提升机': GradientBoostingClassifier(),
         '支持向量机': SVC(kernel='linear', probability=True)
     }
+    data = {'Accuracy': {}, 'AUC': {}, 'Sensitivity': {}, 'Specificity': {}, 'Precision': {}}
     for model_name, model in model_dict.items():
+        start_time = get_timestamp()
         acc, auc, sen, spe, prec = train_and_evaluate(model)
-        print('{}: acc={:.4f}, auc={:.4f}, sen={:.4f}, spe={:.4f}, prec={:.4f}'.format(
-            model_name, acc, auc, sen, spe, prec
-        ))
+        print('{}: {:.2f}s'.format(model_name, get_timestamp() - start_time))
+        data['Accuracy'][model_name] = acc
+        data['AUC'][model_name] = auc
+        data['Sensitivity'][model_name] = sen
+        data['Specificity'][model_name] = spe
+        data['Precision'][model_name] = prec
+
+    # 保存评估结果
+    data_json = json.dumps(data, indent=4, ensure_ascii=False)
+    with open('./data/data.json', 'wb') as f:
+        f.write(data_json.encode())
+        f.close()
+
+    # 使用评估结果画图
+    x = list(range(1, 11))
+    for var, d in data.items():
+        plt.figure(figsize=(5, 4), dpi=300)
+        for model_name in model_dict.keys():
+            y = d[model_name]
+            plt.plot(x, y, label='{}({:.4f})'.format(model_name, np.mean(y)))
+            plt.scatter(x, y, s=10, lw=0.2, ec='#000000', zorder=2)
+        plt.xlim(0.0, 1.0)
+        plt.ylim(0.0, 1.0)
+        plt.xticks([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
+        plt.yticks([0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0], [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
+        plt.xlabel('Fold')
+        plt.ylabel(var)
+        plt.legend()
+        plt.grid(True, c='#eeeeee', ls='--', zorder=0)
+        plt.savefig('./data/{}.png'.format(var))
+        plt.close()
